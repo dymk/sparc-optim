@@ -73,6 +73,9 @@ private
           nodes.insert index, fill_delay_with
           nodes.delete_at index+1 # remove nop
 
+          # insert a newline for readability
+          nodes.insert index+1, Newline.new
+
           nodes.delete_at fd_index # fd was moved to 'index'
         else
           # nop isn't removable
@@ -98,7 +101,13 @@ private
 
     @root_node.nodes[0 .. index].to_enum.with_index.reverse_each do |node, i|
 
+      # Can't optimize across label declarations
       if node.is_a? LabelDecl
+        break
+      end
+
+      # Can't optimize across branches
+      if node.is_a?(Instr) && node.is_branch?
         break
       end
 

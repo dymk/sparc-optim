@@ -383,11 +383,11 @@ end
 
 # TODO: Probably won't be used; remove at some point
 # For formatting the AST when it's printed out
-# class Newline < Node
-#   def to_pretty_s
-#     ""
-#   end
-# end
+class Newline < Node
+  def to_pretty_s
+    ""
+  end
+end
 
 private
 def escape_char c

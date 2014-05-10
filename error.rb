@@ -16,16 +16,14 @@ def error_from_str full_str, loc, length
   # break full_str by newlines
   full_str_lines = full_str.split "\n"
 
-  # get the target line
-
-  lines_before = full_str_lines[loc.row - 2 .. loc.row - 1] || []
-  lines_after  = full_str_lines[loc.row + 1 .. loc.row + 2] || []
+  # lines before and after the target
+  lines_before = full_str_lines[loc.row - 3 .. loc.row - 1] || []
+  lines_after  = full_str_lines[loc.row + 1 .. loc.row + 3] || []
 
   # remove empty lines from the front of before, and the end of after
   while lines_before[0] && lines_before[0].empty?
     lines_before.shift
   end
-
   while lines_after[-1] && lines_after[-1].empty?
     lines_after.pop
   end
@@ -33,19 +31,27 @@ def error_from_str full_str, loc, length
   line = ""
 
   # append the lines before
-  lines_before.each do |l|
-    line += "\t" + l + "\n"
+  lines_before.each_with_index do |l, i|
+    line += prefix_for_linenum(loc.row - lines_before.length + i) + l + "\n"
   end
 
   # append the actual problem line
-  line += "\t" + full_str_lines[loc.row] + "\n"
+  line += prefix_for_linenum(loc.row+1) + full_str_lines[loc.row] + "\n"
   # and underline the error location in the line
-  line += "\t" + (" " * loc.col) + "^" + ("~" * (length-1)) + "\n"
+  line +=
+    "    \t" +
+    (" " * [(loc.col - length + 1), 0].max) +
+    "^" +
+    ("~" * (length - 1)) + "\n"
 
   # and finally append some lines
-  lines_after.each do |l|
-    line += "\t" + l + "\n"
+  lines_after.each_with_index do |l, i|
+    line += prefix_for_linenum(loc.row + i) + l + "\n"
   end
 
   line
+end
+
+def prefix_for_linenum line_num
+  "%3d:  " % [line_num]
 end

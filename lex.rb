@@ -79,8 +79,6 @@ class TokenEnumerator
     # check if we start with a comment
     stripped = @sparc_str.lstrip
     if stripped.start_with?('!') || stripped.start_with?("/*")
-      # save the location of the token
-      @prev_loc = @current_loc.dup
       return @front = token(:cmt, comment)
     end
 
@@ -150,7 +148,14 @@ class TokenEnumerator
     end until empty?
   end
 
-# private
+  def dup
+    # ret = super
+    # ret.instance_variable_set("@current_loc", @current_loc.dup)
+    # ret.instance_variable_set("@prev_loc",    @prev_loc.dup)
+    Marshal.load( Marshal.dump(self) )
+  end
+
+private
 
   # construct a token from a type and value
   # (with optional extra value)
@@ -191,6 +196,9 @@ class TokenEnumerator
     until @sparc_str.start_with?('!') || @sparc_str.start_with?("/*")
       ret << single
     end
+
+    # comment starts here, save the starting location
+    @prev_loc = @current_loc.dup
 
     if @sparc_str.start_with?('!')
       # Handle single line comment
@@ -260,7 +268,7 @@ class TokenEnumerator
 
   # Parses a number literal
   def number
-    num_str = @sparc_str[/(0x)?[0-9]+/]
+    num_str = @sparc_str[/\A(0x[0-9A-F]+)|[0-9]+/]
     skip num_str.length
     [num_str, Integer(num_str)]
   end

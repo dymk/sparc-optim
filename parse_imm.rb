@@ -134,8 +134,6 @@ private
 
     # Else, parse a literal expression
     else
-      # require 'pry'
-      # binding.pry
       parse_lit
     end
   end

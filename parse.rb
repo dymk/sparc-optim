@@ -12,6 +12,7 @@
 require_relative 'ast'
 require_relative 'lex'
 require_relative 'parse_imm'
+require_relative 'consts'
 
 # Parse sparc_str into an AST (as defined in 'ast.rb')
 def parse sparc_str
@@ -48,6 +49,19 @@ class Parser
     end.each do |label|
       label.decl = @label_decls[label.name]
     end
+
+    # # assign nodes that come after a label declaration to that
+    # # label declaration
+    # current_node = nil
+    # root_nodes.each do |node|
+
+    #   if node.is_a? LabelDecl
+    #     current_node = node
+
+    #   elsif current_node
+    #     current_node.nodes << node
+    #   end
+    # end
 
     @compilation_unit =
       CompilationUnit.new(
@@ -153,37 +167,38 @@ private
     # ':lbl' matches on a label
     # ':adr' matches an address in the form of `\[:reg ([+-] :imm)? \]`
 
-    op_name = match(:idt).val
-    args = case op_name
-    when "mov"  then parse_args([:reg, :imm],  :reg)
-    when "cmp"  then parse_args( :reg,        [:reg, :imm])
-    when "save" then parse_args( :reg, [:reg, :imm], :reg)
-    when "call" then parse_args( :lbl )
-    when
-      "bne", "be", "ba", "bn", "bge", "bg", "ble", "bl"
-      then parse_args(:lbl)
+    tok = match(:idt)
+    op = tok.val
+    args = case op
+    when "mov"  then parse_args(op, [:reg, :imm],  :reg)
+    when "set"  then parse_args(op,  :imm, :reg)
+    when "cmp"  then parse_args(op,  :reg,        [:reg, :imm])
+    when "save" then parse_args(op,  :reg, [:reg, :imm], :reg)
+    when "call" then parse_args(op,  :lbl )
+    when *BRANCH_OPS
+      then parse_args(op, :lbl)
     when
       "ld", "ldub", "ldsb", "lduh", "ldsh"
-      then parse_args(:adr, :reg)
+      then parse_args(op, :adr, :reg)
     when
       "st", "sth", "stb"
-      then parse_args(:reg, :adr)
+      then parse_args(op, :reg, :adr)
 
     when "add", "sub"
-      then parse_args(:reg, [:reg, :imm], :reg)
+      then parse_args(op, :reg, [:reg, :imm], :reg)
 
     when "srl", "sll", "sla"
-      then parse_args(:reg, [:reg, :imm], :reg)
+      then parse_args(op, :reg, [:reg, :imm], :reg)
 
-    when "nop" then []
+    when "nop", "ret", "restore" then []
     else
-      error "unrecognized/unimplemented instruction '#{op_name}'"
+      error "unrecognized/unimplemented instruction '#{op}'", tok
     end
 
-    Instr.new(op: op_name, args: args)
+    Instr.new(op: op, args: args)
   end
 
-  def parse_args(*arg_lists)
+  def parse_args(op, *arg_lists)
 
     arg_lists.each_with_index.map do |accepted, i|
       # not the first param, then match on a comma
@@ -215,7 +230,7 @@ private
       end
 
       # at this point none match, meaning syntax error
-      error "expected argument to be of type #{accepted}, but started with #{ft}"
+      error "expected argument #{i+1} for instruction '#{op}' to be of type #{accepted}, but started with #{ft}"
     end
   end
 
@@ -240,9 +255,10 @@ private
   end
 
   # raise a generic parser error
-  def error str
+  def error str, tok = nil
     STDERR.puts "Error parsing: #{str}"
-    STDERR.puts error_str_from_tok(l.full_str, l.front)
+    STDERR.puts error_str_from_tok(l.full_str, tok || l.front)
+    STDERR.puts ""
     exit 1
   end
 
@@ -287,25 +303,3 @@ def is_directive? ident_val
   [".section", ".global", ".align"].freeze.include? ident_val
 end
 
-puts parse(<<-sparc
-/*
- * assembly file isort.s for isort() function, extra credit for
- * CSE 30 PA2 - mycrypt.
- *
- * Performs an insertion sort.
- */
-
-  .section  ".text"
-  .global isort
-
-ONE = 123
-isort:
-  save  %sp, -96, %sp
-
-  mov ONE, %l0
-
-  cmp %l0, %i1
-  bge endarray
-  nop
-sparc
-).to_pretty_s

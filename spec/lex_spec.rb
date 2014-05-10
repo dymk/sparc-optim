@@ -5,6 +5,7 @@ require 'minitest/pride'
 require 'lex'
 
 describe TokenEnumerator do
+
   describe "with an empty lexer" do
     before do
       @lex = TokenEnumerator.new ""
@@ -149,8 +150,6 @@ describe TokenEnumerator do
         isort:
           save  %sp, -96, %sp
       sparc
-
-      # binding.pry
     end
 
     it("has the right sequence of tokens") {
@@ -245,6 +244,58 @@ describe TokenEnumerator do
     it "is still right" do
       @lex = TokenEnumerator.new("   mov")
       @lex.front.loc.must_equal Location.new(0, 3, nil)
+    end
+
+    it "is right for multiline strings" do
+      @lex = TokenEnumerator.new <<-sparc
+        line1
+        line2
+        line3 still_line3
+        "line4"
+
+
+        ! line 5
+
+
+        line6:
+          0x7
+          MY_EIGHT
+      sparc
+
+      tok = @lex.next
+      tok.loc.row.must_equal 0
+      tok.val.must_equal "line1"
+
+      tok = @lex.next
+      tok.loc.row.must_equal 1
+      tok.val.must_equal "line2"
+
+      tok = @lex.next
+      tok.loc.row.must_equal 2
+      tok.val.must_equal "line3"
+
+      tok = @lex.next
+      tok.loc.row.must_equal 2
+      tok.val.must_equal "still_line3"
+
+      tok = @lex.next
+      tok.loc.row.must_equal 3
+      tok.val.must_equal "line4"
+
+      tok = @lex.next
+      tok.loc.row.must_equal 6
+      tok.val.must_match(/! line 5/)
+
+      tok = @lex.next
+      tok.loc.row.must_equal 9
+      tok.val.must_equal "line6"
+    end
+  end
+
+  describe "hex digets" do
+    it "lexes them" do
+      @lex = TokenEnumerator.new("0xFFFFFF")
+      @lex.next.must_equal Token.new(:num, "0xFFFFFF", 0xFFFFFF)
     end
   end
 

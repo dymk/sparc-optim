@@ -31,3 +31,9 @@ start_fourth:
   cmp %l3, %l4
   bge start_routine
   nop
+
+start_fifth:
+  mov  %l0,  %l1
+  cmp  %l1,  %g0
+  ble,a  endinner
+  mov  5,  %l2

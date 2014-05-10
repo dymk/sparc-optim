@@ -41,7 +41,6 @@ class Instr < Node
   end
 
   def is_annuled?
-    raise("is_annuled? called on non-branch op '#{op}'") unless is_branch?
     @annuled
   end
 
@@ -85,6 +84,12 @@ class Instr < Node
     when "add", "sub" then
       [ args[2] ]
 
+    when *LD_OPS then
+      [ args[1] ]
+
+    when *ST_OPS then
+      [ args[0] ]
+
     # else, assume it doesn't modify any
     # TODO:
     # all the srl, sra, ld, st, etc
@@ -114,6 +119,12 @@ class Instr < Node
 
     when "cmp" then
       only_regs(args[0], args[1])
+
+    when *LD_OPS then
+      only_regs(args[0])
+
+    when *ST_OPS then
+      only_regs(args[1])
 
     # call depends on output regs %o0 - %o5
     when "call" then

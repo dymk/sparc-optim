@@ -26,14 +26,14 @@ describe TokenEnumerator do
 
   describe "#comment" do
     it("is correct") {
-      TokenEnumerator.new("! foobar").comment.must_equal "! foobar"
+      TokenEnumerator.new("! foobar").next.val.must_equal "! foobar"
     }
   end
 
   describe "#string_lit" do
     it("is correct") {
       lex = TokenEnumerator.new('"this is a string"  "and so is this"')
-      lex.string_lit.must_equal("this is a string")
+      lex.next.val.must_equal("this is a string")
       lex.next.val.must_equal("and so is this")
       lex.must_be :empty?
     }

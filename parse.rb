@@ -228,7 +228,7 @@ private
 
       # starts with '['
       if (ft == :obr) && accepted.include?(:adr)
-        next parse_adr_arg
+        next parse_adr
       end
 
       # starts with '%'
@@ -250,6 +250,33 @@ private
       # at this point none match, meaning syntax error
       error "expected argument #{i+1} for instruction '#{op}' to be of type #{accepted}, but started with #{ft}"
     end
+  end
+
+  # Parses an address in the form of `[REG (+/- IMM)?]`
+  def parse_adr
+    match(:obr) # '['
+
+    # register, offset sign, and the offset itself
+    reg = parse_reg
+    dir = nil
+    offset = nil
+
+    # Does the adr have an offset?
+    if [:add, :sub].include? l.front.type
+      dir = l.front.val.to_sym
+      l.next
+
+      offset = if l.front.type == :per
+        parse_reg
+      else
+        parse_imm
+      end
+    end
+
+    ret = Address.new(reg: reg, direction: dir, offset: offset)
+    match(:cbr) # ']'
+
+    ret
   end
 
   # Parse a register

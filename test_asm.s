@@ -37,3 +37,13 @@ start_fifth:
   cmp  %l1,  %g0
   ble,a  endinner
   mov  5,  %l2
+
+start_sixth:
+  mov %o0, %l2
+  add %i0, %l2, %l2
+  ld  [%l2], %l3
+  ld  [%l2 - 4], %l4
+
+  cmp %l3, %l4
+  bge endinner
+  nop

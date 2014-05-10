@@ -41,8 +41,6 @@ class CompilationUnit < Node
       ret += node.to_pretty_s + "\n"
     end
     ret
-  rescue
-    binding.pry
   end
 end
 
@@ -61,6 +59,7 @@ class Comment < Node
       value
     end
   end
+
 end
 
 # a directive (e.g. .section or .global)
@@ -109,6 +108,7 @@ class LabelDecl < Node
   def to_pretty_s
     "\n#{name}:"
   end
+
 end
 
 # an arbitrary constant defined by the user
@@ -267,6 +267,37 @@ class Register < Node
   end
   def hash
     name.hash
+  end
+end
+
+# Address node in the form of '[REG (+/- (IMM|REG))?]'
+class Address < Node
+  attr_reader :reg       # Register
+  attr_reader :offset    # Optional offset of the address (immediate or register)
+  attr_reader :direction # Optional offset direction (:- or :+)
+
+  def initialize opts
+    @reg       = opts[:reg] || raise
+    @direction = opts[:direction]
+    @offset    = opts[:offset] || (raise if @direction)
+  end
+
+  # Returns the list of registers that the address node contains
+  def references_regs
+    ret = [@reg]
+    if @offset.is_a? Register
+      ret <<  @offset
+    end
+    ret
+  end
+
+  def to_pretty_s
+    offset_str = if direction
+      " #{direction} #{@offset.to_pretty_s}"
+    else
+      ""
+    end
+    "[#{reg.to_pretty_s}#{offset_str}]"
   end
 end
 

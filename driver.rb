@@ -1,11 +1,15 @@
 require_relative 'optim'
 
-parsed = parse File.read("test_asm.s")
+if ARGV.length != 1
+  puts <<-usage
+  usage:
+    ruby driver.rb <file>
+      <file>: The SPARC asm file to optimize
+      Output is written to stdout
+  usage
+  exit 1
+end
 
-puts "pretty string version:"
-puts parsed.to_pretty_s
-
+parsed = parse File.read(ARGV.last)
 optimized = optim parsed
-puts "\noptmized version:"
 puts optimized.to_pretty_s
-

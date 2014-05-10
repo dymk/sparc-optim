@@ -100,7 +100,7 @@ class LabelDecl < Node
   end
 
   def to_pretty_s
-    "#{name}:"
+    "\n#{name}:"
   end
 end
 
@@ -377,7 +377,7 @@ end
 # end of the source (the last node in a CompilationUnit)
 class Eof < Node
   def to_pretty_s
-    "<EOF>"
+    ""
   end
 end
 

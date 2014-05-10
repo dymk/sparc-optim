@@ -39,7 +39,7 @@ class Parser
 
     root_nodes = []
     until l.empty?
-      root_nodes << parse_root_node
+      root_nodes << (parse_root_node || error("ICE: got nil node"))
     end
     root_nodes << parse_eof
 
@@ -49,19 +49,6 @@ class Parser
     end.each do |label|
       label.decl = @label_decls[label.name]
     end
-
-    # # assign nodes that come after a label declaration to that
-    # # label declaration
-    # current_node = nil
-    # root_nodes.each do |node|
-
-    #   if node.is_a? LabelDecl
-    #     current_node = node
-
-    #   elsif current_node
-    #     current_node.nodes << node
-    #   end
-    # end
 
     @compilation_unit =
       CompilationUnit.new(
@@ -111,20 +98,12 @@ private
     Eof.new
   end
 
-  def parse_ident
-    raise "TODO"
-  end
-
-  def parse_label
-    name = match(:idt).val
-    Label.new(name: name)
-  end
-
   def parse_label_decl
-    name = match(:idt).val
+    lbl_tok = match(:idt)
+    name = lbl_tok.val
     match(:cln)
     ret = LabelDecl.new(name: name)
-    register_label ret
+    register_label ret, lbl_tok
     ret
   end
 
@@ -134,7 +113,7 @@ private
 
   def parse_directive_or_instr_or_label_decl_or_const
     # symbol starts with a dot; check if it matches any directive values
-    if is_directive? l.front.val
+    if DIRECTIVES.include? l.front.val
       return parse_directive
     end
 
@@ -175,8 +154,11 @@ private
     when "cmp"  then parse_args(op,  :reg,        [:reg, :imm])
     when "save" then parse_args(op,  :reg, [:reg, :imm], :reg)
     when "call" then parse_args(op,  :lbl )
-    when *BRANCH_OPS
-      then parse_args(op, :lbl)
+
+    # early return for branch instructions (which have specialized parsing)
+    when *BRANCH_OPS then
+      return parse_branch_instr(tok)
+
     when
       "ld", "ldub", "ldsb", "lduh", "ldsh"
       then parse_args(op, :adr, :reg)
@@ -198,14 +180,50 @@ private
     Instr.new(op: op, args: args)
   end
 
-  def parse_args(op, *arg_lists)
+  # Parse a branch instruction (handling annuled branches)
+  # Note that it takes branch_tok, which is the token that
+  # would have been at the front of the lexer
+  def parse_branch_instr branch_tok
+    annuled = if l.front.type == :cma
+      match(:cma)
+      a = match(:idt)
+      unless a.val == "a"
+        error("expected 'a' signifying annuled branch after comma", a)
+      end
 
+      true
+    else
+      false
+    end
+
+    ret = Instr.new(
+      op: branch_tok.val,
+      annuled: annuled,
+      args: parse_args(branch_tok.val, :lbl))
+    error("ICE: parsed non-branch as a branch instr '#{op}'") unless ret.is_branch?
+    ret
+  end
+
+  # Parse a list of comma separated arguments for op 'op'
+  # Accepted types of arguments for each position is defined by
+  # 'arg_lists', which is an array of arrays.
+  # For instance, arg_lists = [
+  #   [:reg, :imm],
+  #   :reg
+  # ]
+  # would allow a register or immediate as the first argument parsed,
+  # and only a register as the second argument parsed
+  def parse_args op, *arg_lists
     arg_lists.each_with_index.map do |accepted, i|
       # not the first param, then match on a comma
-      match(:cma) if i != 0
+      match(:cma) if (i != 0)
 
-      # ensure accepted is an aray
+      # ensure accepted is an array of valid argument types
       accepted = [*accepted]
+      unless accepted.all? { |a| [:reg, :imm, :lbl, :adr].freeze.include?(a) }
+        error("ICE: invalid argument parse type in list '#{accepted}'")
+      end
+
       ft = l.front.type
 
       # starts with '['
@@ -215,13 +233,13 @@ private
 
       # starts with '%'
       if (ft == :per) && accepted.include?(:reg)
-        next parse_reg_arg
+        next parse_reg
       end
 
       # starts with an arbitrary identifier
       # (which also isn't a defined constant)
       if (ft == :idt) && !@constant_decls[l.front.val] && accepted.include?(:lbl)
-        next parse_label_arg
+        next parse_label
       end
 
       # none of the above, try parsing as an immediate value
@@ -234,17 +252,21 @@ private
     end
   end
 
-  def parse_reg_arg
+  # Parse a register
+  def parse_reg
     match(:per)
     name = match(:idt).val
     Register.new(name: name);
   end
 
-  def parse_label_arg
+  # Parse a label (not a label decl)
+  def parse_label
     tok = match(:idt)
     Label.new(name: tok.val)
   end
 
+  # Parse a constant declaration, e.g
+  # MY_CONST = 123
   def parse_const_decl
     name = match(:idt).val
     match(:asn)
@@ -262,6 +284,8 @@ private
     exit 1
   end
 
+  # Match 'type' at the front of the lexer, and move to the next token.
+  # Raise a parser error unless 'type' is the front of the lexer
   def match type
     tok = l.front
 
@@ -282,12 +306,22 @@ private
       error "constant with name #{cd.name} defined more than once"
     end
 
+    if @label_decls[cd.name]
+      error "label with name #{cd.name} already defined"
+    end
+
     @constant_decls[cd.name] = cd
   end
 
-  def register_label lb
+  # Registers a label declaration, with an optional 'tok'
+  # for generating better error messages
+  def register_label lb, tok = nil
     if @label_decls[lb.name]
-      error "label with name #{lb.name} already declared"
+      error("label with name #{lb.name} already declared", tok)
+    end
+
+    if @constant_decls[lb.name]
+      error("constant with name #{lb.name} already declared", tok)
     end
 
     @label_decls[lb.name] = lb
@@ -298,8 +332,3 @@ private
     @lexer
   end
 end
-
-def is_directive? ident_val
-  [".section", ".global", ".align"].freeze.include? ident_val
-end
-

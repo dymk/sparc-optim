@@ -39,8 +39,9 @@ def error_from_str full_str, loc, length
   line += prefix_for_linenum(loc.row+1) + full_str_lines[loc.row] + "\n"
   # and underline the error location in the line
   line +=
-    "    \t" +
-    (" " * [(loc.col - length + 1), 0].max) +
+    # same width as prefix_for_linenum
+    "   :  " +
+    (" " * [(loc.col), 0].max) +
     "^" +
     ("~" * (length - 1)) + "\n"
 

@@ -30,6 +30,7 @@ private
   def optimize_basic_blocks
     nodes = @root_node.nodes
 
+    # nops that couldn't be removed using this strategy
     unremovable = Set.new
 
     while true

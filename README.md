@@ -77,10 +77,9 @@ start_third:
 ->
 ```asm
 start_third:
-  mov %l1, %o0
-  mov 4, %o1
-  call  .mul
-  nop
+  mov  %l1,  %o0
+  call   .mul
+  mov  4,  %o1
 ```
 
 ----

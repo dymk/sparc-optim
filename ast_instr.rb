@@ -7,12 +7,15 @@
 # is quite large compared to other ast nodes.
 
 # generic instruction class
-class Instr < Node
+class Instr < RootNode
   # name of the operation
   attr_reader :op # String
 
   # arguments passed to the op
   attr_reader :args # [Node]
+
+  # is the branch annuled?
+  attr_writer :annuled
 
   def initialize opts
     @op      = opts[:op]      || raise

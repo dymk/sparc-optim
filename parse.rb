@@ -31,29 +31,33 @@ class Parser
 
     # maps label names (String) to a LabelDecl
     @label_decls = {}
+
+    # list of all referenced labels
+    @labels = []
   end
 
   # Parses an entire compilation unit and returns a CompilationUnit node
   def parse_root
     return @compilation_unit if @compilation_unit
 
+    @compilation_unit = CompilationUnit.new
+
     root_nodes = []
     until l.empty?
-      root_nodes << (parse_root_node || error("ICE: got nil node"))
+      root_node = parse_root_node || error("ICE: got nil when parsing root node")
+      root_nodes        << root_node
+      @compilation_unit << root_node
     end
-    root_nodes << parse_eof
+
+    root_nodes        << parse_eof
+    @compilation_unit << parse_eof
 
     # fix up labels to point to their label declaration
-    root_nodes.select do |node|
-      node.is_a? Label
-    end.each do |label|
+    @labels.each do |label|
       label.decl = @label_decls[label.name]
     end
 
-    @compilation_unit =
-      CompilationUnit.new(
-        nodes: root_nodes,
-        defines: [])
+    @compilation_unit
   end
 
 private
@@ -289,7 +293,9 @@ private
   # Parse a label (not a label decl)
   def parse_label
     tok = match(:idt)
-    Label.new(name: tok.val)
+    ret = Label.new(name: tok.val)
+    @labels << ret
+    ret
   end
 
   # Parse a constant declaration, e.g

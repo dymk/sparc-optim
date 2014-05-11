@@ -9,8 +9,33 @@
 # See ast_instr for the AST node for instructions
 
 
-# root node in the ast
+# Parent node class for all AST nodes
 class Node
+end
+
+# Node which can appear in the 'nodes'
+# array of CompilationUnit
+# Acts as a linked list of nodes
+class RootNode < Node
+  attr_accessor :prev_node, :next_node
+  def initialize opts
+    @prev_node ||= opts[:prev_node]
+    @next_node ||= opts[:next_node]
+  end
+
+  def to_s
+    pn = @prev_node
+    nn = @next_node
+    @prev_node = pn ? pn.to_pretty_s : nil
+    @next_node = nn ? nn.to_pretty_s : nil
+
+    ret = super
+
+    @prev_node = pn
+    @next_node = nn
+
+    ret
+  end
 end
 
 # include instruction AST node
@@ -19,32 +44,47 @@ require_relative 'ast_instr'
 # basically an entire *.s file
 class CompilationUnit < Node
   # array of nodes in the compilation unit
-  attr_reader :nodes   # [Node]
+  attr_reader :root_node   # RootNode
 
   # Macros/constants
-  attr_reader :defines # String[Node]
+  # attr_reader :defines # String[Node]
 
-  # associate label names with the label instance in @nodes
-  attr_reader :labels  # String[Node]
+  def initialize opts = {}
+    @root_node = opts[:root_node]
+    @last_node = @root_node
+    if @root_node && !@root_node.is_a?(RootNode)
+      raise("@root_node not a RootNode") unless root_node.is_a?(RootNode)
+    end
+  end
 
-  def initialize opts
-    @nodes   = opts[:nodes]   || raise
-    @defines = opts[:defines] || raise
+  # Append a RootNode onto the linked list of nodes
+  def << node
+    raise unless node.is_a?(RootNode)
 
-    # should probably build up based on nodes array
-    @labels = opts[:labels]
+    unless @root_node
+      @root_node = node
+      @last_node = node
+    end
+
+    @last_node.next_node = node
+    node.prev_node = @last_node
+    @last_node = node
   end
 
   def to_pretty_s
     ret = ""
-    nodes.each do |node|
+
+    node = root_node
+    while node
       ret += node.to_pretty_s + "\n"
+      node = node.next_node
     end
+
     ret
   end
 end
 
-class Comment < Node
+class Comment < RootNode
   attr_reader :value
 
   def initialize opts
@@ -63,7 +103,7 @@ class Comment < Node
 end
 
 # a directive (e.g. .section or .global)
-class Directive < Node
+class Directive < RootNode
   attr_reader :name  # String
   attr_reader :param # Node
 
@@ -98,7 +138,7 @@ class Label < Node
 end
 
 # declaration of a label
-class LabelDecl < Node
+class LabelDecl < RootNode
   attr_reader :name
 
   def initialize opts
@@ -112,7 +152,7 @@ class LabelDecl < Node
 end
 
 # an arbitrary constant defined by the user
-class ConstantDecl
+class ConstantDecl < RootNode
   attr_reader :name  # String
   attr_reader :value # Node
 
@@ -127,7 +167,7 @@ class ConstantDecl
 end
 
 # represents the use of a constant declaration in an expression
-class Constant
+class Constant < Node
   attr_reader :decl # ConstantDecl
 
   def initialize opts
@@ -181,7 +221,7 @@ class CharLit < Literal
 end
 
 # Binary operator
-class BinOp
+class BinOp < Node
   attr_reader :op           # String
   attr_reader :left, :right # Node
 
@@ -197,7 +237,7 @@ class BinOp
 end
 
 # Prefix unary operator
-class PreUnOp
+class PreUnOp < Node
   attr_reader :op    # String
   attr_reader :child # Node
 
@@ -212,7 +252,7 @@ class PreUnOp
 end
 
 # parenthesis for explicity binding binary operations
-class BindParens
+class BindParens < Node
   # the node that has its parens bound
   attr_reader :child # Node
 
@@ -302,7 +342,10 @@ class Address < Node
 end
 
 # end of the source (the last node in a CompilationUnit)
-class Eof < Node
+class Eof < RootNode
+  def initialize
+  end
+
   def to_pretty_s
     ""
   end
@@ -310,7 +353,10 @@ end
 
 # TODO: Probably won't be used; remove at some point
 # For formatting the AST when it's printed out
-class Newline < Node
+class Newline < RootNode
+  def initialize
+  end
+
   def to_pretty_s
     ""
   end

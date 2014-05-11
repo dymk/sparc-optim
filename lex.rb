@@ -45,12 +45,9 @@ end
 
 Token = Struct.new(:type, :val, :extra, :loc) do
   def ==(other)
-    unless other.is_a? Token
-      return false
-    end
-
-    # compare all but location
-    return (other.type == type) &&
+    # compare all members but location
+    return other.is_a?(Token) &&
+      (other.type == type) &&
       (other.val == val) &&
       (other.extra == extra)
   end
